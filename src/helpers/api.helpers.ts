@@ -1,17 +1,17 @@
 import axios from "axios";
 
 
-interface TLogin {
-  username: string;
-  password: string;
-}
-
 export const postRequest = async <T>(
   apiPath: string,
-  data: TLogin,
+  data: unknown,
+  token?: string | null
 ): Promise<T> => {
   try {
-    const response = await axios.post(apiPath,data);
+    const response = await axios.post(apiPath,data,{
+      headers: {
+        authorization: token ? `Bearer ${token}` : "",
+      },
+    });
     const result = response.data;
     return result;
   } catch (error) {

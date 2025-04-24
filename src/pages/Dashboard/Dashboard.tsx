@@ -1,39 +1,63 @@
 import { useState, useEffect } from 'react';
-import {
-  Box,
-  TextField,
-  Typography,
-  IconButton,
-  Paper,
-} from '@mui/material';
+import { Box, TextField, Typography, IconButton, Paper } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { isTokenExpired } from '../../utils/jwt.helper';
 import { useAuthCheck } from '../../hooks/useAuthCheck';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import SendIcon from '@mui/icons-material/Send';
+import { postImage } from '../../components/endpoints/dashboard.endpoints';
+import ReactToast from '../../components/Toast/Toast';
+
+
 
 const ChatLayout = () => {
+  const token = localStorage.getItem('token');
+
   useAuthCheck(); // Custom hook to check token expiration
   const [message, setMessage] = useState('');
   const [file, setFile] = useState(null);
+  const [toastMessage, setToastMessage] = useState('');
   const navigate = useNavigate();
 
-  useEffect(()=>{
-    const token = localStorage.getItem('token');
+  useEffect(() => {
     if (!token || isTokenExpired(token)) {
       localStorage.removeItem('token');
       navigate('/login');
     }
-  },[]);
+  }, [token, navigate]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     console.log('Message:', message);
     console.log('Attached File:', file);
-    setMessage('');
-    setFile(null);
+
+    if (!file) {
+      // Agar file attach nahi hui ho to toast message show karo
+      setToastMessage('No file attached! Please select a file to upload.');
+      return;
+    }
+
+    const formData = new FormData();
+    if (file) {
+      formData.append('file', file);
+    }
+    if (message) {
+      formData.append('message', message); // Add message to formData if required
+    }
+
+    try {
+      if (file) {
+        await postImage(formData, token);
+      }
+      // After sending, clear the fields
+      setMessage('');
+      setFile(null);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      // Add error handling logic here (e.g., show a notification)
+    }
   };
 
-  const handleFileChange = (e: any) => {
+  const handleFileChange = (e:any) => {
     setFile(e.target.files[0]);
   };
 
@@ -42,7 +66,6 @@ const ChatLayout = () => {
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      // TradingView widget initialization
       new (window as any).TradingView.widget({
         width: '100%',
         height: '100%',
@@ -60,19 +83,16 @@ const ChatLayout = () => {
     };
 
     const container = document.getElementById('tv-script-container');
-      if (container) {
-        container.appendChild(script);
-      }
+    if (container) {
+      container.appendChild(script);
+    }
   }, []);
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#1C192A' }}>
       {/* Left - TradingView widget (75%) */}
       <Box sx={{ flex: 3, p: 2 }}>
-        <Box
-          id="tv-script-container"
-          sx={{ width: '100%', height: '100%' }}
-        >
+        <Box id="tv-script-container" sx={{ width: '100%', height: '100%' }}>
           <div id="tradingview_widget" style={{ height: '100%' }} />
         </Box>
       </Box>
@@ -89,6 +109,8 @@ const ChatLayout = () => {
           flexDirection: 'column',
         }}
       >
+      {toastMessage && <ReactToast toastMessage={toastMessage} />}
+
         <Typography variant="h6" gutterBottom>
           Chat with Assistant
         </Typography>
@@ -130,6 +152,7 @@ const ChatLayout = () => {
           />
           <input
             type="file"
+            name="file"
             id="file-upload"
             style={{ display: 'none' }}
             onChange={handleFileChange}
