@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, TextField, Typography, IconButton, Paper } from '@mui/material';
+import { Box, TextField, Typography, IconButton, Paper, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { isTokenExpired } from '../../utils/jwt.helper';
 import { useAuthCheck } from '../../hooks/useAuthCheck';
@@ -8,15 +8,15 @@ import SendIcon from '@mui/icons-material/Send';
 import { postImage } from '../../components/endpoints/dashboard.endpoints';
 import ReactToast from '../../components/Toast/Toast';
 
-
-
 const ChatLayout = () => {
   const token = localStorage.getItem('token');
+  useAuthCheck();
 
-  useAuthCheck(); // Custom hook to check token expiration
   const [message, setMessage] = useState('');
-  const [file, setFile] = useState(null);
+  const [messages, setMessages] = useState<{ text: string; sender: 'user' | 'assistant' }[]>([]);
+  const [file, setFile] = useState<File | null>(null);
   const [toastMessage, setToastMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,38 +27,39 @@ const ChatLayout = () => {
   }, [token, navigate]);
 
   const handleSend = async () => {
-    console.log('Message:', message);
-    console.log('Attached File:', file);
-
-    if (!file) {
-      // Agar file attach nahi hui ho to toast message show karo
-      setToastMessage('No file attached! Please select a file to upload.');
+    // Validation First
+    if (!message.trim() || !file) {
+      setToastMessage('File or message is missing.');
       return;
     }
 
     const formData = new FormData();
-    if (file) {
-      formData.append('file', file);
-    }
-    if (message) {
-      formData.append('message', message); // Add message to formData if required
-    }
+    formData.append('file', file);
+    formData.append('message', message);
+
+    // Add user's message immediately
+    setMessages((prev) => [...prev, { text: message, sender: 'user' }]);
+    setLoading(true);
 
     try {
-      if (file) {
-        await postImage(formData, token);
-      }
-      // After sending, clear the fields
+      const response = await postImage(formData, token);
+      // Example: Assuming response gives a reply text
+      setMessages((prev) => [...prev, { text: response?.reply || "Assistant response", sender: 'assistant' }]);
+
       setMessage('');
       setFile(null);
     } catch (error) {
-      console.error('Error uploading file:', error);
-      // Add error handling logic here (e.g., show a notification)
+      console.error('Error sending message:', error);
+      setToastMessage('Failed to send. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFileChange = (e:any) => {
-    setFile(e.target.files[0]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
   };
 
   useEffect(() => {
@@ -90,14 +91,14 @@ const ChatLayout = () => {
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#1C192A' }}>
-      {/* Left - TradingView widget (75%) */}
+      {/* Left side - TradingView Widget */}
       <Box sx={{ flex: 3, p: 2 }}>
         <Box id="tv-script-container" sx={{ width: '100%', height: '100%' }}>
           <div id="tradingview_widget" style={{ height: '100%' }} />
         </Box>
       </Box>
 
-      {/* Right - Chat Box (25%) */}
+      {/* Right side - Chat */}
       <Box
         sx={{
           flex: 1,
@@ -109,7 +110,7 @@ const ChatLayout = () => {
           flexDirection: 'column',
         }}
       >
-      {toastMessage && <ReactToast toastMessage={toastMessage} />}
+        {toastMessage && <ReactToast toastMessage={toastMessage} />}
 
         <Typography variant="h6" gutterBottom>
           Chat with Assistant
@@ -123,15 +124,40 @@ const ChatLayout = () => {
             overflowY: 'auto',
             bgcolor: '#2C2A3A',
             color: 'white',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
           }}
         >
-          {/* Messages display area */}
-          <Typography variant="body2" color="white">
-            No messages yet.
-          </Typography>
+          {messages.length === 0 ? (
+            <Typography variant="body2" color="white">
+              No messages yet.
+            </Typography>
+          ) : (
+            messages.map((msg, index) => (
+              <Box
+                key={index}
+                sx={{
+                  alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
+                  bgcolor: msg.sender === 'user' ? '#4A90E2' : '#7B7D8D',
+                  borderRadius: 2,
+                  px: 2,
+                  py: 1,
+                  maxWidth: '80%',
+                }}
+              >
+                <Typography>{msg.text}</Typography>
+              </Box>
+            ))
+          )}
+          {loading && (
+            <Box sx={{ alignSelf: 'center', mt: 1 }}>
+              <CircularProgress size={24} sx={{ color: 'white' }} />
+            </Box>
+          )}
         </Paper>
 
-        {/* Message input section */}
+        {/* Input section */}
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField
             value={message}
