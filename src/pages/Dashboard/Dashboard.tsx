@@ -56,7 +56,7 @@ const ChatLayout = () => {
       // Example: Assuming response gives a reply text
       setMessages((prev) => [
         ...prev,
-        { text: response?.reply || "Assistant response", sender: "assistant" },
+        { text: (response as any)?.reply || "Assistant response", sender: "assistant" },
       ]);
 
       setMessage("");
