@@ -96,6 +96,23 @@ const ChatLayout = () => {
         enable_publishing: false,
         allow_symbol_change: true,
         container_id: "tradingview_widget",
+        widgetbar: {
+          watchlist: true,
+          watchlist_settings: {
+            default_symbols: [
+              "NQ1!",
+              "ES1!",
+              "YM1!",
+              "NQH2025",
+              "NQM2025",
+              "ESH2025",
+              "ESM2025",
+              "YMH2025",
+              "YMM2025"
+            ],
+            readonly: false
+          }
+        },
       });
     };
 
